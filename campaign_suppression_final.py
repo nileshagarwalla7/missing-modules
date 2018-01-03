@@ -443,6 +443,26 @@ dfMetaCampaignData_31 = (dfMetaCampaignData2.select([c for c in dfMetaCampaignDa
 										.filter(pos_filter_cond))
 
 
+###Checking if all the modules in dfMetaCampaignData_31 are present in dfModuleVariableDefinition
+
+StartDate = get_pst_date()										
+list_modules_31=dfMetaCampaignData_31.select('module_id').distinct().rdd.flatMap(lambda x: x).collect()
+list_modules_modvardef=dfModuleVariableDefinition.select('module_id').distinct().rdd.flatMap(lambda x: x).collect()
+
+mod_intersect=set(list_modules_31).intersection(set(list_modules_modvardef))
+mod_notPresent_list=list(set(list_modules_31)-mod_intersect)
+mod_notPresent_list
+
+if(len(mod_notPresent_list)!=0):
+	print("Some modules not present")
+	log_df_update(sqlContext,0,'Failed',get_pst_date(),'Some modules not present in module_variable_definition','0',StartDate,' ',AlphaProcessDetailsLog_str)
+	log_df_update(sqlContext,0,failure_str,get_pst_date(),'Error','0',AlphaStartDate,' ',AlphaProcessDetailsLog_str)
+	log_df_update(sqlContext,0,failure_str,get_pst_date(),'Error','0',AlphaStartDate,' ',CentralLog_str)
+	code_completion_email("failed as some modules were not present in module_variable_definition","Alpha process update for "+locale_name,pos,locale_name)
+	raise Exception("modules not present: ",mod_notPresent_list)
+
+else:
+	log_df_update(sqlContext,1,'Missing modules check',get_pst_date(),'','0',StartDate,' ',AlphaProcessDetailsLog_str) 
 
 if (dfMetaCampaignData_31.count()) <= 0 :
 	condition_str = 'check campaign is present for locale {} and launch date {}'.format(locale_name,LaunchDate)
@@ -1346,7 +1366,7 @@ def content_map(row):
 					placement_type_mp = suppress_dict['placement_type'][int(x_dict['S'+slot_position+'_module_id'])]
 					default_flag_mp = suppress_dict['default'][int(x_dict['S'+slot_position+'_module_id'])]
 
-					if ((x.lower().find('value_not_found') >= 0) or (x.lower().find('none') >= 0 and len(x) == 4) or (x.lower().find('nan') >= 0) or (x.lower().find('null') >= 0) ):
+					if ((x.lower().find('value_not_found') >= 0) or (x.lower().find('none') >= 0) or (x.lower().find('nan') >= 0) or (x.lower().find('null') >= 0) ):
 						if ( slot_var_pos == "S1_P1"):
 							x_dict[slot_var_pos] = x_total.split('|')[0]	   #for att 'default' it has been changed to 'None'
 						else:
